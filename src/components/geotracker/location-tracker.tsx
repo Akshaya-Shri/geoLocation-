@@ -1,12 +1,15 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useTransition } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { LocateFixed, AlertCircle, Edit } from 'lucide-react';
+import { LocateFixed, AlertCircle, Edit, Search, Loader } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { geocode } from '@/ai/flows/geocode-flow';
+import { useToast } from '@/hooks/use-toast';
 
 type Coordinates = {
   lat: number;
@@ -15,9 +18,12 @@ type Coordinates = {
 
 export function LocationTracker() {
   const [coords, setCoords] = useState<Coordinates | null>(null);
-  const [manualCoords, setManualCoords] = useState<Coordinates>({ lat: 0, lng: 0 });
+  const [manualCoords, setManualCoords] = useState<Coordinates | null>(null);
+  const [manualLocation, setManualLocation] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("live");
+  const [isGeocoding, startGeocoding] = useTransition();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (activeTab !== 'live') {
@@ -51,14 +57,30 @@ export function LocationTracker() {
 
     return () => clearInterval(intervalId);
   }, [activeTab]);
+  
+  const handleGeocode = () => {
+    if (!manualLocation) return;
+    startGeocoding(async () => {
+      try {
+        const result = await geocode({ location: manualLocation });
+        if (result) {
+          setManualCoords(result);
+        }
+      } catch (e) {
+        console.error(e);
+        toast({
+          variant: 'destructive',
+          title: 'Geocoding Error',
+          description: 'Could not find coordinates for the specified location.',
+        });
+      }
+    });
+  };
 
-  const handleManualCoordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    const newManualCoords = {
-      ...manualCoords,
-      [name]: value === '' ? '' : parseFloat(value),
-    };
-    setManualCoords(newManualCoords);
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleGeocode();
+    }
   };
   
   const displayCoords = activeTab === 'live' ? coords : manualCoords;
@@ -119,31 +141,32 @@ export function LocationTracker() {
         <TabsContent value="manual">
           <Card>
             <CardHeader>
-              <CardTitle>Manual Coordinates</CardTitle>
-              <CardDescription>Enter latitude and longitude manually.</CardDescription>
+              <CardTitle>Manual Location</CardTitle>
+              <CardDescription>Enter a city or address to find its coordinates.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-2">
-                <Label htmlFor="lat">Latitude</Label>
-                <Input
-                  id="lat"
-                  name="lat"
-                  type="number"
-                  placeholder="e.g., 40.7128"
-                  value={manualCoords.lat}
-                  onChange={handleManualCoordChange}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="lng">Longitude</Label>
-                <Input
-                  id="lng"
-                  name="lng"
-                  type="number"
-                  placeholder="e.g., -74.0060"
-                  value={manualCoords.lng}
-                  onChange={handleManualCoordChange}
-                />
+                <Label htmlFor="location">Location Name</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="location"
+                    name="location"
+                    type="text"
+                    placeholder="e.g., Paris, France"
+                    value={manualLocation}
+                    onChange={(e) => setManualLocation(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    disabled={isGeocoding}
+                  />
+                  <Button onClick={handleGeocode} disabled={isGeocoding}>
+                    {isGeocoding ? (
+                      <Loader className="animate-spin" />
+                    ) : (
+                      <Search />
+                    )}
+                    <span className="sr-only">Search</span>
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -160,7 +183,7 @@ export function LocationTracker() {
             <CardDescription>
               {activeTab === 'live'
                 ? "Your real-time geographic coordinates. Updates every 5 seconds."
-                : "Manually entered geographic coordinates."
+                : `Coordinates for ${manualLocation || 'the entered location'}.`
               }
             </CardDescription>
           </CardHeader>
@@ -184,7 +207,7 @@ export function LocationTracker() {
               </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground">Enter coordinates above to see them displayed here.</p>
+            <p className="text-muted-foreground">Enter a location above and click search to see its coordinates.</p>
           </CardContent>
         </Card>
       ))}
