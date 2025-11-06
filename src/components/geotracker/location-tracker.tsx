@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { LocateFixed, AlertCircle } from 'lucide-react';
-import { MapView } from './map-view';
 import { Skeleton } from '@/components/ui/skeleton';
 
 type Coordinates = {
@@ -106,8 +105,6 @@ export function LocationTracker() {
           </div>
         </CardContent>
       </Card>
-
-      <MapView lat={coords.lat} lng={coords.lng} />
     </div>
   );
 }
