@@ -1,5 +1,3 @@
-# Firebase Studio
+# GeoTracker
 
-This is a NextJS starter in Firebase Studio.
-
-To get started, take a look at src/app/page.tsx.
+GeoTracker is a real-time location tracking application that can find a user's current coordinates or geocode a location by name.
